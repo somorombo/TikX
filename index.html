@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TikX - Sohbet, Oyun & 3D Sinema</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js (3D Film Salonu için) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #090d16;
+      color: #f8fafc;
+      overflow: hidden;
+      height: 100dvh;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Mobil Uygulama Çerçevesi */
+    #app-shell {
+      width: 100%;
+      max-width: 430px;
+      height: 100dvh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+      border-left: 1px solid rgba(255, 255, 255, 0.06);
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Sade Canlı Arka Plan Temaları */
+    .bg-theme-pulse {
+      background: radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.14), transparent 45%),
+                  radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.14), transparent 45%),
+                  #0b0f19;
+      background-size: 200% 200%;
+      animation: bgMove 14s ease infinite;
+    }
+
+    .bg-theme-ocean {
+      background: radial-gradient(circle at 30% 10%, rgba(6, 182, 212, 0.18), transparent 50%),
+                  radial-gradient(circle at 70% 90%, rgba(99, 102, 241, 0.16), transparent 50%),
+                  #07111d;
+      background-size: 200% 200%;
+      animation: bgMove 16s ease infinite;
+    }
+
+    .bg-theme-aurora {
+      background: radial-gradient(circle at 15% 85%, rgba(168, 85, 247, 0.16), transparent 50%),
+                  radial-gradient(circle at 85% 15%, rgba(20, 184, 166, 0.16), transparent 50%),
+                  #0d0a1a;
+      background-size: 200% 200%;
+      animation: bgMove 18s ease infinite;
+    }
+
+    .bg-theme-minimal {
+      background: #0b0f19;
+    }
+
+    @keyframes bgMove {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @keyframes pulseRing {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .speaking-ring { animation: pulseRing 1.5s infinite; }
+  </style>
+</head>
+<body>
+
+<div id="app-shell" class="bg-theme-pulse">
+
+  <!-- ==================== 1. GİRİŞ EKRANI ==================== -->
+  <section id="auth-screen" class="flex-1 flex flex-col justify-between p-6 overflow-y-auto no-scrollbar z-20">
+    <div class="pt-8 text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 shadow-lg shadow-emerald-500/20 mb-4">
+        <i data-lucide="check-circle-2" class="w-9 h-9 text-slate-950 stroke-[2.5]"></i>
+      </div>
+      <h1 class="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-200 to-cyan-300 bg-clip-text text-transparent">
+        TikX
+      </h1>
+      <p class="text-slate-400 text-sm mt-1.5">Sohbet et, oyna, birlikte izle.</p>
+    </div>
+
+    <div class="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-xl my-4">
+      <div class="grid grid-cols-3 gap-1 bg-slate-950/70 p-1 rounded-xl mb-5 text-xs font-semibold">
+        <button onclick="switchAuthTab('login')" id="tab-login" class="py-2 rounded-lg bg-emerald-500 text-slate-950 transition">E-posta</button>
+        <button onclick="switchAuthTab('register')" id="tab-register" class="py-2 rounded-lg text-slate-400 hover:text-white transition">Kayıt Ol</button>
+        <button onclick="switchAuthTab('phone')" id="tab-phone" class="py-2 rounded-lg text-slate-400 hover:text-white transition">Telefon</button>
+      </div>
+
+      <form id="form-login" onsubmit="handleEmailLogin(event)" class="space-y-3.5">
+        <div>
+          <label class="text-xs text-slate-400 ml-1">E-posta Adresi</label>
+          <input type="email" id="login-email" required placeholder="ornek@tikx.app"
+            class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <div class="flex justify-between items-center ml-1">
+            <label class="text-xs text-slate-400">Şifre</label>
+            <button type="button" onclick="openForgotModal()" class="text-xs text-emerald-400 hover:underline">Şifremi Unuttum</button>
+          </div>
+          <input type="password" id="login-pass" required placeholder="••••••••"
+            class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <button type="submit" class="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20">
+          Giriş Yap
+        </button>
+      </form>
+
+      <form id="form-register" onsubmit="handleEmailRegister(event)" class="space-y-3.5 hidden">
+        <div>
+          <label class="text-xs text-slate-400 ml-1">Kullanıcı Adı</label>
+          <input type="text" id="reg-name" required placeholder="Adın veya takma adın"
+            class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 ml-1">E-posta</label>
+          <input type="email" id="reg-email" required placeholder="ornek@tikx.app"
+            class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 ml-1">Şifre (En az 6 karakter)</label>
+          <input type="password" id="reg-pass" required minlength="6" placeholder="••••••••"
+            class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <button type="submit" class="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+          Hesap Oluştur
+        </button>
+      </form>
+
+      <div id="form-phone" class="space-y-3.5 hidden">
+        <div id="phone-step-1">
+          <label class="text-xs text-slate-400 ml-1">Telefon Numarası (+90...)</label>
+          <input type="tel" id="phone-number" placeholder="+90 555 123 4567"
+            class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+          <div id="recaptcha-container" class="my-2"></div>
+          <button type="button" onclick="sendPhoneCode()" class="w-full mt-2 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition">
+            Doğrulama Kodu Gönder
+          </button>
+        </div>
+        <div id="phone-step-2" class="hidden space-y-3">
+          <label class="text-xs text-slate-400 ml-1">SMS ile Gelen 6 Haneli Kod</label>
+          <input type="text" id="phone-otp" maxlength="6" placeholder="123456"
+            class="w-full px-4 py-3 rounded-xl bg-slate-950/90 border border-white/10 text-center tracking-widest text-lg font-bold text-white focus:outline-none focus:border-emerald-500" />
+          <button type="button" onclick="verifyPhoneCode()" class="w-full py-3.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-sm">
+            Kodu Onayla ve Gir
+          </button>
+        </div>
+      </div>
+
+      <div class="relative my-5">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/10"></div></div>
+        <div class="relative flex justify-center text-xs"><span class="px-3 bg-slate-900 text-slate-500">veya hızlı devam et</span></div>
+      </div>
+
+      <button type="button" onclick="handleGoogleLogin()" class="w-full py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-semibold text-sm flex items-center justify-center gap-2.5 transition">
+        <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/><path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/></svg>
+        Google ile Devam Et
+      </button>
+    </div>
+
+    <p class="text-center text-[11px] text-slate-500 pb-2">TikX v1.0 • tikx-27069</p>
+  </section>
+
+  <!-- ==================== 2. ANA UYGULAMA EKRANI ==================== -->
+  <section id="main-screen" class="hidden flex-1 flex flex-col h-full overflow-hidden">
+
+    <header class="px-4 py-3 bg-slate-950/60 backdrop-blur-md border-b border-white/10 flex items-center justify-between shrink-0 z-10">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center">
+          <i data-lucide="check-circle-2" class="w-5 h-5 text-slate-950 stroke-[2.5]"></i>
+        </div>
+        <span class="font-extrabold text-lg tracking-tight">TikX</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="openAnnouncementsModal()" class="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 text-amber-400 transition" title="Duyurular">
+          <i data-lucide="megaphone" class="w-5 h-5"></i>
+          <span id="announcement-badge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400"></span>
+        </button>
+        <button onclick="openNotificationsModal()" class="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 transition" title="Bildirimler">
+          <i data-lucide="bell" class="w-5 h-5"></i>
+          <span id="notif-badge" class="hidden absolute -top-1 -right-1 px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-500 text-white">0</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="pinned-announcement" onclick="openAnnouncementsModal()" class="px-4 py-2 bg-gradient-to-r from-amber-500/15 to-emerald-500/15 border-b border-white/10 flex items-center justify-between text-xs cursor-pointer shrink-0">
+      <div class="flex items-center gap-2 truncate">
+        <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px]">DUYURU</span>
+        <span id="pinned-announcement-text" class="text-slate-200 truncate">TikX'e hoş geldin! 3D Sinema Salonu ve Mini Oyunlar aktif.</span>
+      </div>
+      <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 shrink-0"></i>
+    </div>
+
+    <main class="flex-1 overflow-hidden relative flex flex-col">
+
+      <!-- SEKME 1: ODALAR & DM -->
+      <div id="view-rooms" class="flex-1 flex flex-col overflow-hidden">
+        <div class="p-3 flex items-center justify-between gap-2 shrink-0">
+          <div class="flex bg-slate-900/90 p-1 rounded-xl border border-white/10 flex-1">
+            <button onclick="switchChatMode('rooms')" id="btn-mode-rooms" class="flex-1 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">
+              Sohbet Odaları
+            </button>
+            <button onclick="switchChatMode('dm')" id="btn-mode-dm" class="flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-400 transition">
+              Özel Mesajlar (DM)
+            </button>
+          </div>
+          <button onclick="openCreateRoomModal()" id="btn-new-room" class="p-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/20" title="Yeni Oda Oluştur">
+            <i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>
+          </button>
+        </div>
+
+        <div id="rooms-list-container" class="flex-1 overflow-y-auto px-3 pb-4 space-y-2.5 no-scrollbar"></div>
+
+        <div id="dm-list-container" class="hidden flex-1 overflow-y-auto px-3 pb-4 space-y-2.5 no-scrollbar">
+          <div class="bg-slate-900/70 border border-white/10 rounded-2xl p-3 mb-2">
+            <p class="text-[11px] text-slate-400 mb-2">Kullanıcı ID veya adı ile Özel Sohbet Başlat (Sadece ikiniz görebilirsiniz):</p>
+            <div class="flex gap-2">
+              <input type="text" id="dm-target-input" placeholder="Kullanıcı adı veya UID..." class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-xs text-white focus:outline-none focus:border-emerald-500" />
+              <button onclick="startNewDM()" class="px-3 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold">Başlat</button>
+            </div>
+          </div>
+          <div id="dm-threads-list" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <!-- AKTİF SOHBET EKRANI -->
+      <div id="active-chat-view" class="hidden absolute inset-0 bg-slate-950 z-30 flex flex-col">
+        <div class="px-3 py-2.5 bg-slate-900 border-b border-white/10 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <button onclick="closeActiveChat()" class="p-1.5 rounded-lg bg-white/5 text-slate-300">
+              <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            </button>
+            <div class="min-w-0">
+              <h3 id="chat-header-title" class="font-bold text-sm truncate">Oda Adı</h3>
+              <p id="typing-indicator" class="text-[11px] text-emerald-400 h-4 truncate"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="btn-delete-room" onclick="deleteCurrentRoom()" class="hidden p-2 rounded-lg bg-rose-500/15 text-rose-400 hover:bg-rose-500/25" title="Odayı Sil">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="messages-container" class="flex-1 overflow-y-auto p-3 space-y-3 no-scrollbar"></div>
+
+        <div id="gif-picker" class="hidden bg-slate-900 border-t border-white/10 p-2.5 shrink-0">
+          <div class="flex gap-2 mb-2">
+            <input type="text" id="gif-search" oninput="filterGifs()" placeholder="GIF ara..." class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-white/10 text-xs text-white" />
+            <button onclick="toggleGifPicker()" class="text-xs text-slate-400 px-2">Kapat</button>
+          </div>
+          <div id="gif-grid" class="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto no-scrollbar"></div>
+        </div>
+
+        <div class="p-2.5 bg-slate-900 border-t border-white/10 shrink-0">
+          <div class="flex items-center gap-1.5">
+            <label class="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-emerald-400 cursor-pointer">
+              <i data-lucide="image" class="w-5 h-5"></i>
+              <input type="file" accept="image/*" onchange="sendPhotoMessage(event)" class="hidden" />
+            </label>
+            <button type="button" onclick="toggleGifPicker()" class="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-emerald-400 text-xs font-extrabold">
+              GIF
+            </button>
+            <button type="button" id="btn-record-audio" onclick="toggleAudioRecording()" class="p-2 rounded-xl bg-white/5 text-slate-300 hover:text-rose-400 transition">
+              <i data-lucide="mic" class="w-5 h-5"></i>
+            </button>
+            <input type="text" id="chat-input" oninput="handleTyping()" onkeydown="if(event.key==='Enter') sendTextMessage()" placeholder="Mesaj yaz..."
+              class="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-white/10 text-sm text-white focus:outline-none focus:border-emerald-500" />
+            <button type="button" onclick="sendTextMessage()" class="p-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEKME 2: 3D ORTAK FİLM SALONU -->
+      <div id="view-cinema" class="hidden flex-1 flex flex-col overflow-hidden">
+        <div class="relative w-full h-56 bg-black shrink-0 border-b border-white/10">
+          <div id="threejs-cinema-container" class="w-full h-full"></div>
+          <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <video id="shared-video-player" class="w-64 h-36 rounded-lg shadow-2xl border border-white/20 bg-black pointer-events-auto" controls playsinline
+              src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"></video>
+          </div>
+          <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2 bg-slate-950/80 backdrop-blur px-2.5 py-1.5 rounded-xl border border-white/10">
+            <button onclick="syncCinemaVideo()" class="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-bold text-[11px] flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3 h-3"></i> Senkronize Et
+            </button>
+            <button onclick="changeCinemaVideoUrl()" class="px-2.5 py-1 rounded-lg bg-white/10 text-white text-[11px]">
+              Video Linki Değiştir
+            </button>
+            <span class="text-[11px] text-cyan-300 font-semibold">3D Salon</span>
+          </div>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-hidden p-3">
+          <h4 class="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1.5">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-emerald-400"></i> Salon Canlı Yorumları
+          </h4>
+          <div id="cinema-comments" class="flex-1 overflow-y-auto space-y-2 no-scrollbar pb-2"></div>
+          <div class="flex gap-2 pt-2 border-t border-white/10">
+            <input type="text" id="cinema-comment-input" onkeydown="if(event.key==='Enter') sendCinemaComment()" placeholder="Film hakkında yorum yaz..."
+              class="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white focus:outline-none focus:border-emerald-500" />
+            <button onclick="sendCinemaComment()" class="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold">Gönder</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEKME 3: SESLİ & GÖRÜNTÜLÜ ODA -->
+      <div id="view-voice" class="hidden flex-1 flex flex-col p-4 overflow-y-auto no-scrollbar">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="font-bold text-base">Sesli & Görüntülü Lobi</h2>
+            <p class="text-xs text-slate-400">Arkadaşlarınla anlık sesli veya kameralı konuş</p>
+          </div>
+          <span id="voice-status-badge" class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 text-[11px] font-semibold">Bağlı Değil</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div id="my-voice-card" class="bg-slate-900/90 border border-white/10 rounded-2xl p-3 flex flex-col items-center justify-center relative aspect-square overflow-hidden">
+            <video id="local-video-preview" autoplay muted playsinline class="hidden absolute inset-0 w-full h-full object-cover"></video>
+            <div id="my-voice-avatar" class="w-16 h-16 rounded-full bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-slate-950 font-extrabold text-xl z-10">
+              T
+            </div>
+            <span id="my-voice-name" class="mt-2 text-xs font-bold z-10 bg-slate-950/70 px-2 py-0.5 rounded-full">Sen</span>
+          </div>
+
+          <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-3 flex flex-col items-center justify-center relative aspect-square">
+            <div class="w-16 h-16 rounded-full bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-300 font-bold text-lg">
+              <i data-lucide="headphones" class="w-7 h-7"></i>
+            </div>
+            <span class="mt-2 text-xs text-slate-400">Oda Açık • Bekleniyor</span>
+          </div>
+        </div>
+
+        <div class="mt-auto bg-slate-900 border border-white/10 rounded-2xl p-3 flex items-center justify-around">
+          <button onclick="toggleVoiceJoin()" id="btn-voice-join" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs flex items-center gap-1.5">
+            <i data-lucide="phone-call" class="w-4 h-4"></i> Odaya Katıl
+          </button>
+          <button onclick="toggleMic()" id="btn-mic" class="p-3 rounded-xl bg-white/10 text-white hover:bg-white/20" title="Mikrofon">
+            <i data-lucide="mic" class="w-5 h-5"></i>
+          </button>
+          <button onclick="toggleCam()" id="btn-cam" class="p-3 rounded-xl bg-white/10 text-white hover:bg-white/20" title="Kamera">
+            <i data-lucide="video" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- SEKME 4: MİNİ OYUNLAR & SKOR İSTATİSTİKLERİ -->
+      <div id="view-games" class="hidden flex-1 flex flex-col p-4 overflow-y-auto no-scrollbar space-y-4">
+        <div class="bg-gradient-to-br from-emerald-500/20 via-slate-900 to-cyan-500/20 border border-emerald-500/30 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm flex items-center gap-1.5">
+              <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> Skor İstatistiklerin
+            </h3>
+            <span class="text-[11px] text-emerald-300 font-semibold">TikX Lig</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-slate-950/70 rounded-xl p-2.5">
+              <div id="stat-points" class="text-lg font-extrabold text-emerald-400">0</div>
+              <div class="text-[10px] text-slate-400">Toplam Puan</div>
+            </div>
+            <div class="bg-slate-950/70 rounded-xl p-2.5">
+              <div id="stat-wins" class="text-lg font-extrabold text-cyan-400">0</div>
+              <div class="text-[10px] text-slate-400">Galibiyet</div>
+            </div>
+            <div class="bg-slate-950/70 rounded-xl p-2.5">
+              <div id="stat-played" class="text-lg font-extrabold text-amber-400">0</div>
+              <div class="text-[10px] text-slate-400">Oynanan</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="font-bold text-sm">Mini Oyun: TikX XOX</h4>
+            <button onclick="resetXOX()" class="text-xs text-emerald-400 hover:underline">Sıfırla</button>
+          </div>
+          <p id="xox-status" class="text-xs text-slate-400 mb-3">Sıra sende (X) — Kazanırsan +25 Puan!</p>
+          <div id="xox-board" class="grid grid-cols-3 gap-2 max-w-[240px] mx-auto"></div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4">
+          <h4 class="font-bold text-sm mb-1">Mini Oyun: Taş - Kağıt - Makas</h4>
+          <p id="rps-result" class="text-xs text-slate-400 mb-3">Hamleni seç (+15 Puan):</p>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="playRPS('Taş')" class="py-2.5 rounded-xl bg-slate-950 border border-white/10 hover:border-emerald-500 text-xs font-bold">✊ Taş</button>
+            <button onclick="playRPS('Kağıt')" class="py-2.5 rounded-xl bg-slate-950 border border-white/10 hover:border-emerald-500 text-xs font-bold">✋ Kağıt</button>
+            <button onclick="playRPS('Makas')" class="py-2.5 rounded-xl bg-slate-950 border border-white/10 hover:border-emerald-500 text-xs font-bold">✌️ Makas</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEKME 5: AYARLAR -->
+      <div id="view-settings" class="hidden flex-1 flex flex-col p-4 overflow-y-auto no-scrollbar space-y-4">
+        <h2 class="font-bold text-base">Profil ve Ayarlar</h2>
+
+        <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center gap-3">
+            <img id="settings-avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=TikX" alt="Avatar"
+              class="w-16 h-16 rounded-2xl bg-slate-800 object-cover border border-emerald-500/40" />
+            <div class="flex-1">
+              <label class="inline-block px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold cursor-pointer">
+                Profil Fotoğrafı Değiştir
+                <input type="file" accept="image/*" onchange="updateProfilePhoto(event)" class="hidden" />
+              </label>
+              <p id="settings-uid" class="text-[10px] text-slate-500 mt-1 truncate">ID: ...</p>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs text-slate-400">Görünen İsim</label>
+            <div class="flex gap-2 mt-1">
+              <input type="text" id="settings-name-input" class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-sm text-white" />
+              <button onclick="saveProfileName()" class="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold">Kaydet</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs text-slate-400">Açıklama (Herkes İçin Ortak Durum)</label>
+            <input type="text" id="settings-bio-input" readonly value="TikX dünyasında sohbet ve oyuna hazır!"
+              class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950/60 border border-white/5 text-xs text-slate-400 cursor-not-allowed" />
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4">
+          <h3 class="text-xs font-bold text-slate-300 mb-2.5">Sade Canlı Arka Plan Teması</h3>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <button onclick="setBgTheme('bg-theme-pulse')" class="p-2.5 rounded-xl bg-slate-950 border border-emerald-500/40 text-left font-semibold">🌿 Gece Nabzı</button>
+            <button onclick="setBgTheme('bg-theme-ocean')" class="p-2.5 rounded-xl bg-slate-950 border border-white/10 text-left font-semibold">🌊 Derin Okyanus</button>
+            <button onclick="setBgTheme('bg-theme-aurora')" class="p-2.5 rounded-xl bg-slate-950 border border-white/10 text-left font-semibold">🌌 Kuzey Işıkları</button>
+            <button onclick="setBgTheme('bg-theme-minimal')" class="p-2.5 rounded-xl bg-slate-950 border border-white/10 text-left font-semibold">🌑 Sade Koyu</button>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-white/10 rounded-2xl p-4 space-y-2.5">
+          <button onclick="handleLogout()" class="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-2">
+            <i data-lucide="log-out" class="w-4 h-4"></i> Çıkış Yap
+          </button>
+          <button onclick="openDeleteAccount2FA()" class="w-full py-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 font-bold text-xs flex items-center justify-center gap-2">
+            <i data-lucide="shield-alert" class="w-4 h-4"></i> Hesabı Kalıcı Olarak Sil (2FA)
+          </button>
+        </div>
+      </div>
+
+    </main>
+
+    <nav class="bg-slate-950/90 backdrop-blur-lg border-t border-white/10 px-2 py-2 grid grid-cols-5 gap-1 shrink-0 z-10">
+      <button onclick="switchMainTab('rooms')" id="nav-rooms" class="flex flex-col items-center py-1 text-emerald-400">
+        <i data-lucide="message-circle" class="w-5 h-5"></i>
+        <span class="text-[10px] font-bold mt-0.5">Sohbet</span>
+      </button>
+      <button onclick="switchMainTab('cinema')" id="nav-cinema" class="flex flex-col items-center py-1 text-slate-400">
+        <i data-lucide="film" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold mt-0.5">3D Salon</span>
+      </button>
+      <button onclick="switchMainTab('voice')" id="nav-voice" class="flex flex-col items-center py-1 text-slate-400">
+        <i data-lucide="mic" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold mt-0.5">Sesli Oda</span>
+      </button>
+      <button onclick="switchMainTab('games')" id="nav-games" class="flex flex-col items-center py-1 text-slate-400">
+        <i data-lucide="gamepad-2" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold mt-0.5">Oyunlar</span>
+      </button>
+      <button onclick="switchMainTab('settings')" id="nav-settings" class="flex flex-col items-center py-1 text-slate-400">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        <span class="text-[10px] font-semibold mt-0.5">Ayarlar</span>
+      </button>
+    </nav>
+  </section>
+
+  <!-- ==================== MODALLAR ==================== -->
+  <div id="modal-forgot" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-5 w-full max-w-sm space-y-3">
+      <h3 class="font-bold text-base">Şifre Sıfırlama</h3>
+      <p class="text-xs text-slate-400">E-posta adresini yaz, şifre sıfırlama bağlantısını hemen gönderelim.</p>
+      <input type="email" id="forgot-email" placeholder="ornek@tikx.app" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-sm text-white" />
+      <div class="flex gap-2 pt-1">
+        <button onclick="closeModal('modal-forgot')" class="flex-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold">İptal</button>
+        <button onclick="sendPasswordReset()" class="flex-1 py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold">Bağlantı Gönder</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-create-room" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-5 w-full max-w-sm space-y-3">
+      <h3 class="font-bold text-base">Yeni Sohbet Odası Oluştur</h3>
+      <input type="text" id="new-room-name" placeholder="Oda adı (ör: Gece Muhabbeti)" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-sm text-white" />
+      <input type="text" id="new-room-desc" placeholder="Kısa oda açıklaması..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-sm text-white" />
+      <div class="flex gap-2 pt-1">
+        <button onclick="closeModal('modal-create-room')" class="flex-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold">Vazgeç</button>
+        <button onclick="createRoom()" class="flex-1 py-2.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-bold">Oluştur</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-announcements" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-5 w-full max-w-sm max-h-[80dvh] flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-base flex items-center gap-2"><i data-lucide="megaphone" class="w-4 h-4 text-amber-400"></i> TikX Duyurular</h3>
+        <button onclick="closeModal('modal-announcements')" class="text-slate-400 text-xs">Kapat</button>
+      </div>
+      <div class="flex gap-2 mb-3">
+        <input type="text" id="new-announcement-input" placeholder="Yeni duyuru yayınla..." class="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-xs text-white" />
+        <button onclick="publishAnnouncement()" class="px-3 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-bold">Yayınla</button>
+      </div>
+      <div id="announcements-list" class="flex-1 overflow-y-auto space-y-2 no-scrollbar"></div>
+    </div>
+  </div>
+
+  <div id="modal-notifications" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/10 rounded-3xl p-5 w-full max-w-sm max-h-[80dvh] flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-base flex items-center gap-2"><i data-lucide="bell" class="w-4 h-4 text-emerald-400"></i> Bildirim Merkezi</h3>
+        <button onclick="clearNotifications()" class="text-xs text-emerald-400">Tümünü Okundu Say</button>
+      </div>
+      <div id="notifications-list" class="flex-1 overflow-y-auto space-y-2 no-scrollbar"></div>
+      <button onclick="closeModal('modal-notifications')" class="mt-3 w-full py-2.5 rounded-xl bg-white/10 text-xs font-bold">Kapat</button>
+    </div>
+  </div>
+
+  <div id="modal-delete-2fa" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-rose-500/30 rounded-3xl p-5 w-full max-w-sm space-y-3">
+      <h3 class="font-bold text-base text-rose-400">2 Doğrulamalı Hesap Silme</h3>
+      <p class="text-xs text-slate-300">1. Adım: Güvenlik için aşağıdaki tek kullanımlık doğrulama kodunu kutuya gir:</p>
+      <div id="delete-2fa-code-display" class="py-2 rounded-xl bg-slate-950 text-center font-mono text-lg font-extrabold tracking-widest text-amber-400 border border-white/10">
+        000000
+      </div>
+      <input type="text" id="delete-2fa-input" maxlength="6" placeholder="6 haneli kodu yaz" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-center text-sm text-white" />
+      <p class="text-xs text-slate-300">2. Adım: Onaylamak için aşağıya <b>SİL</b> yaz:</p>
+      <input type="text" id="delete-confirm-word" placeholder="SİL" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-center text-sm text-white" />
+      <div class="flex gap-2 pt-1">
+        <button onclick="closeModal('modal-delete-2fa')" class="flex-1 py-2.5 rounded-xl bg-white/10 text-xs font-bold">Vazgeç</button>
+        <button onclick="confirmDeleteAccount2FA()" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold">Hesabı Sil</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 border border-emerald-500/40 text-xs font-semibold text-white shadow-xl"></div>
+
+</div>
+
+<!-- ==================== FIREBASE & UYGULAMA MANTIĞI ==================== -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+    sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, RecaptchaVerifier,
+    signInWithPhoneNumber, signOut, deleteUser, updateProfile
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, addDoc, deleteDoc,
+    onSnapshot, query, orderBy, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDCGELl7l5BZ_1MOtFvjR-OR1x6kv0kFXI",
+    authDomain: "tikx-27069.firebaseapp.com",
+    projectId: "tikx-27069",
+    storageBucket: "tikx-27069.firebasestorage.app",
+    messagingSenderId: "492572011358",
+    appId: "1:492572011358:web:85a28eedd97761c59cfdcf",
+    measurementId: "G-X6MF196MQT"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const COMMON_BIO = "TikX dünyasında sohbet ve oyuna hazır!";
+  let currentUser = null;
+  let currentChat = null;
+  let unsubscribeMessages = null;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
+  let generated2FACode = "";
+  let localStream = null;
+  let micEnabled = true;
+  let camEnabled = false;
+
+  const GIF_CATALOG = [
+    { tag: "selam merhaba", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbW50b2R1cXJ6cWJ6b3Z6b3Z6b3Z6b3Z6b3Z6b3Z6b3Z6/hvRJCLFzcasrR4ia7z/giphy.gif" },
+    { tag: "gol sevinc oyun", url: "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif" },
+    { tag: "alkis tebrik", url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif" },
+    { tag: "gulme komik", url: "https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif" },
+    { tag: "oyun gamer", url: "https://media.giphy.com/media/3o7abB06u9bNzA8lu8/giphy.gif" },
+    { tag: "sinema patlamis misir", url: "https://media.giphy.com/media/pUeXcg80cO8I8/giphy.gif" }
+  ];
+
+  const localStore = {
+    roomsFallback: [
+      { id: "genel-lobi", name: "Genel Sohbet & Oyun", desc: "Herkese açık ana muhabbet odası", ownerId: "system" }
+    ],
+    messagesCache: {},
+    dms: [],
+    announcements: [
+      { id: "a1", text: "TikX 3D Ortak Film Salonu ve Mini Oyunlar yayında!", author: "TikX Ekibi", time: "Bugün" }
+    ],
+    notifications: [
+      { id: "n1", text: "TikX'e hoş geldin!", unread: true }
+    ],
+    stats: { points: 0, wins: 0, played: 0 }
+  };
+
+  window.showToast = (msg) => {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.remove("hidden");
+    setTimeout(() => el.classList.add("hidden"), 2800);
+  };
+
+  window.closeModal = (id) => document.getElementById(id).classList.add("hidden");
+
+  function pushNotification(text) {
+    localStore.notifications.unshift({ id: Date.now().toString(), text, unread: true });
+    renderNotifications();
+  }
+
+  // ==================== KİMLİK DOĞRULAMA ====================
+  window.switchAuthTab = (tab) => {
+    ["login", "register", "phone"].forEach(t => {
+      document.getElementById(`form-${t}`).classList.toggle("hidden", t !== tab);
+      const btn = document.getElementById(`tab-${t}`);
+      btn.className = t === tab
+        ? "py-2 rounded-lg bg-emerald-500 text-slate-950 transition"
+        : "py-2 rounded-lg text-slate-400 hover:text-white transition";
+    });
+  };
+
+  window.handleEmailLogin = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("login-email").value.trim();
+    const pass = document.getElementById("login-pass").value;
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (err) {
+      showToast("Giriş hatası: " + err.message);
+    }
+  };
+
+  window.handleEmailRegister = async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("reg-name").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
+    const pass = document.getElementById("reg-pass").value;
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(cred.user, { displayName: name });
+      enterApp({ ...cred.user, displayName: name });
+    } catch (err) {
+      showToast("Kayıt hatası: " + err.message);
+    }
+  };
+
+  window.handleGoogleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      showToast("Google giriş hatası: " + err.message);
+    }
+  };
+
+  let confirmationResult = null;
+  window.sendPhoneCode = async () => {
+    const phone = document.getElementById("phone-number").value.trim();
+    if (!phone) return showToast("Telefon numarası gir.");
+    try {
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+      }
+      confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+      document.getElementById("phone-step-1").classList.add("hidden");
+      document.getElementById("phone-step-2").classList.remove("hidden");
+      showToast("Doğrulama kodu gönderildi!");
+    } catch (err) {
+      showToast("SMS hatası: " + err.message);
+    }
+  };
+
+  window.verifyPhoneCode = async () => {
+    const code = document.getElementById("phone-otp").value.trim();
+    try {
+      await confirmationResult.confirm(code);
+    } catch (err) {
+      showToast("Kod hatalı!");
+    }
+  };
+
+  window.openForgotModal = () => document.getElementById("modal-forgot").classList.remove("hidden");
+  window.sendPasswordReset = async () => {
+    const email = document.getElementById("forgot-email").value.trim();
+    if (!email) return showToast("E-posta adresini yaz.");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      closeModal("modal-forgot");
+      showToast("Şifre sıfırlama bağlantısı e-postana gönderildi.");
+    } catch (err) {
+      showToast("Hata: " + err.message);
+    }
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) enterApp(user);
+  });
+
+  function enterApp(user) {
+    currentUser = {
+      uid: user.uid,
+      name: user.displayName || (user.email ? user.email.split("@")[0] : "TikX Oyuncusu"),
+      email: user.email || "",
+      photo: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
+    };
+
+    document.getElementById("auth-screen").classList.add("hidden");
+    document.getElementById("main-screen").classList.remove("hidden");
+
+    document.getElementById("settings-name-input").value = currentUser.name;
+    document.getElementById("settings-avatar-img").src = currentUser.photo;
+    document.getElementById("settings-uid").textContent = `ID: ${currentUser.uid}`;
+    document.getElementById("settings-bio-input").value = COMMON_BIO;
+    document.getElementById("my-voice-name").textContent = currentUser.name;
+    document.getElementById("my-voice-avatar").textContent = currentUser.name[0].toUpperCase();
+
+    renderRooms();
+    renderGifs(GIF_CATALOG);
+    renderAnnouncements();
+    renderNotifications();
+    initXOX();
+    init3DCinema();
+    lucide.createIcons();
+  }
+
+  // ==================== NAVİGASYON ====================
+  window.switchMainTab = (tab) => {
+    ["rooms", "cinema", "voice", "games", "settings"].forEach(t => {
+      document.getElementById(`view-${t}`).classList.toggle("hidden", t !== tab);
+      const nav = document.getElementById(`nav-${t}`);
+      nav.className = t === tab
+        ? "flex flex-col items-center py-1 text-emerald-400"
+        : "flex flex-col items-center py-1 text-slate-400";
+    });
+  };
+
+  window.switchChatMode = (mode) => {
+    document.getElementById("rooms-list-container").classList.toggle("hidden", mode !== "rooms");
+    document.getElementById("dm-list-container").classList.toggle("hidden", mode !== "dm");
+    document.getElementById("btn-new-room").classList.toggle("hidden", mode !== "rooms");
+    document.getElementById("btn-mode-rooms").className = mode === "rooms"
+      ? "flex-1 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition"
+      : "flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-400 transition";
+    document.getElementById("btn-mode-dm").className = mode === "dm"
+      ? "flex-1 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition"
+      : "flex-1 py-1.5 rounded-lg text-xs font-bold text-slate-400 transition";
+    if (mode === "dm") renderDMs();
+  };
+
+  // ==================== ODALAR VE ÖZEL DM ====================
+  function renderRooms() {
+    onSnapshot(query(collection(db, "rooms"), orderBy("createdAt", "desc")), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      drawRoomCards(list.length > 0 ? list : localStore.roomsFallback);
+    });
+  }
+
+  function drawRoomCards(rooms) {
+    const container = document.getElementById("rooms-list-container");
+    container.innerHTML = rooms.map(r => `
+      <div onclick="openChat('room', '${r.id}', '${r.name.replace(/'/g, "")}', '${r.ownerId || ""}')"
+        class="bg-slate-900/80 hover:bg-slate-900 border border-white/10 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer transition">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-extrabold shrink-0">
+            #
+          </div>
+          <div class="min-w-0">
+            <h4 class="font-bold text-sm text-white truncate">${r.name}</h4>
+            <p class="text-xs text-slate-400 truncate">${r.desc || "Sohbet odası"}</p>
+          </div>
+        </div>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 shrink-0"></i>
+      </div>
+    `).join("");
+    lucide.createIcons();
+  }
+
+  window.openCreateRoomModal = () => document.getElementById("modal-create-room").classList.remove("hidden");
+  window.createRoom = async () => {
+    const name = document.getElementById("new-room-name").value.trim();
+    const desc = document.getElementById("new-room-desc").value.trim();
+    if (!name) return showToast("Oda adı yazmalısın.");
+    await addDoc(collection(db, "rooms"), { name, desc, ownerId: currentUser.uid, createdAt: serverTimestamp() });
+    document.getElementById("new-room-name").value = "";
+    document.getElementById("new-room-desc").value = "";
+    closeModal("modal-create-room");
+    pushNotification(`"${name}" odası oluşturuldu.`);
+    showToast("Oda oluşturuldu!");
+  };
+
+  window.startNewDM = () => {
+    const target = document.getElementById("dm-target-input").value.trim();
+    if (!target) return showToast("Kullanıcı adı veya UID gir.");
+    const participants = [currentUser.uid, target].sort();
+    const dmId = `dm_${participants[0]}_${participants[1]}`;
+    if (!localStore.dms.find(d => d.id === dmId)) {
+      localStore.dms.unshift({ id: dmId, targetName: target, participants });
+      localStore.messagesCache[dmId] = [];
+    }
+    document.getElementById("dm-target-input").value = "";
+    renderDMs();
+    openChat("dm", dmId, `DM • ${target}`, currentUser.uid);
+  };
+
+  function renderDMs() {
+    const list = document.getElementById("dm-threads-list");
+    const myDMs = localStore.dms.filter(d => d.participants.includes(currentUser.uid));
+    if (myDMs.length === 0) {
+      list.innerHTML = `<p class="text-center text-xs text-slate-500 py-6">Henüz özel mesajın yok. Yukarıdan başlatabilirsin.</p>`;
+      return;
+    }
+    list.innerHTML = myDMs.map(d => `
+      <div onclick="openChat('dm', '${d.id}', 'DM • ${d.targetName}', '${currentUser.uid}')"
+        class="bg-slate-900/80 border border-cyan-500/20 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold">
+            ${d.targetName[0].toUpperCase()}
+          </div>
+          <div>
+            <h4 class="font-bold text-sm">${d.targetName}</h4>
+            <p class="text-[11px] text-cyan-400">🔒 Özel kanal (Sadece ikiniz)</p>
+          </div>
+        </div>
+        <i data-lucide="lock" class="w-4 h-4 text-cyan-400"></i>
+      </div>
+    `).join("");
+    lucide.createIcons();
+  }
+
+  // ==================== AKTİF SOHBET VE MESAJLAŞMA ====================
+  window.openChat = (type, id, title, ownerId) => {
+    currentChat = { type, id, title, ownerId };
+    document.getElementById("active-chat-view").classList.remove("hidden");
+    document.getElementById("chat-header-title").textContent = title;
+    const delBtn = document.getElementById("btn-delete-room");
+    delBtn.classList.toggle("hidden", !(type === "room" && ownerId === currentUser.uid));
+    loadMessages();
+  };
+
+  window.closeActiveChat = () => {
+    document.getElementById("active-chat-view").classList.add("hidden");
+    if (unsubscribeMessages) unsubscribeMessages();
+    currentChat = null;
+  };
+
+  window.deleteCurrentRoom = async () => {
+    if (!currentChat || currentChat.type !== "room") return;
+    await deleteDoc(doc(db, "rooms", currentChat.id));
+    showToast("Sohbet odası silindi.");
+    closeActiveChat();
+  };
+
+  function getNowTime() {
+    const d = new Date();
+    return d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function loadMessages() {
+    if (!currentChat) return;
+    if (currentChat.type === "room") {
+      unsubscribeMessages = onSnapshot(query(collection(db, `rooms/${currentChat.id}/messages`), orderBy("createdAt", "asc")), (snap) => {
+        const msgs = [];
+        snap.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+        renderMessages(msgs);
+      });
+    } else {
+      const msgs = localStore.messagesCache[currentChat.id] || [];
+      msgs.forEach(m => {
+        if (!m.readBy) m.readBy = [];
+        if (!m.readBy.includes(currentUser.uid)) m.readBy.push(currentUser.uid);
+      });
+      renderMessages(msgs);
+    }
+  }
+
+  function renderMessages(msgs) {
+    const container = document.getElementById("messages-container");
+    container.innerHTML = msgs.map(m => {
+      const isMe = m.senderId === currentUser.uid;
+      const isRead = m.readBy && m.readBy.length > 1;
+      const reactionsHtml = m.reactions ? Object.entries(m.reactions).map(([emo, users]) =>
+        users.length > 0 ? `<button onclick="toggleReaction('${m.id}', '${emo}')" class="px-1.5 py-0.5 rounded-full bg-white/10 text-[11px] flex items-center gap-1">${emo} <span>${users.length}</span></button>` : ""
+      ).join("") : "";
+
+      let bodyHtml = "";
+      if (m.imageUrl) {
+        bodyHtml = `<img src="${m.imageUrl}" class="rounded-xl max-h-48 object-cover mb-1" />`;
+      } else if (m.gifUrl) {
+        bodyHtml = `<img src="${m.gifUrl}" class="rounded-xl max-h-40 object-cover mb-1" />`;
+      } else if (m.audioUrl) {
+        bodyHtml = `<audio controls src="${m.audioUrl}" class="h-8 w-48 my-1"></audio>`;
+      } else {
+        bodyHtml = `<p class="text-sm break-words">${m.text} ${m.edited ? '<span class="text-[10px] opacity-60">(düzenlendi)</span>' : ''}</p>`;
+      }
+
+      return `
+        <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+          <span class="text-[10px] text-slate-400 mb-0.5 px-1">${isMe ? 'Sen' : m.senderName}</span>
+          <div class="max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? 'bg-emerald-500 text-slate-950 rounded-br-sm' : 'bg-slate-900 border border-white/10 text-white rounded-bl-sm'}">
+            ${bodyHtml}
+            <div class="flex items-center justify-end gap-1.5 mt-1 text-[10px] ${isMe ? 'text-slate-900/80' : 'text-slate-400'}">
+              <span>${m.time || ''}</span>
+              ${isMe ? `<span>${isRead ? '✓✓ Okundu' : '✓ İletildi'}</span>` : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-1 mt-1 px-1">
+            ${reactionsHtml}
+            <button onclick="toggleReaction('${m.id}', '❤️')" class="text-[11px] opacity-60 hover:opacity-100">❤️</button>
+            <button onclick="toggleReaction('${m.id}', '😂')" class="text-[11px] opacity-60 hover:opacity-100">😂</button>
+            <button onclick="toggleReaction('${m.id}', '🔥')" class="text-[11px] opacity-60 hover:opacity-100">🔥</button>
+            ${isMe && m.text ? `<button onclick="editMessage('${m.id}')" class="text-[10px] text-cyan-400 ml-1">Düzenle</button>` : ''}
+            ${isMe ? `<button onclick="deleteMessage('${m.id}')" class="text-[10px] text-rose-400 ml-1">Sil</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join("");
+    container.scrollTop = container.scrollHeight;
+  }
+
+  async function pushMessage(payload) {
+    if (!currentChat) return;
+    const msgObj = {
+      id: "msg_" + Date.now(),
+      senderId: currentUser.uid,
+      senderName: currentUser.name,
+      time: getNowTime(),
+      readBy: [currentUser.uid],
+      reactions: {},
+      ...payload
+    };
+
+    if (currentChat.type === "room") {
+      await addDoc(collection(db, `rooms/${currentChat.id}/messages`), { ...msgObj, createdAt: serverTimestamp() });
+    } else {
+      if (!localStore.messagesCache[currentChat.id]) localStore.messagesCache[currentChat.id] = [];
+      localStore.messagesCache[currentChat.id].push(msgObj);
+      renderMessages(localStore.messagesCache[currentChat.id]);
+    }
+  }
+
+  window.sendTextMessage = () => {
+    const input = document.getElementById("chat-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    document.getElementById("typing-indicator").textContent = "";
+    pushMessage({ text });
+  };
+
+  let typingTimeout = null;
+  window.handleTyping = () => {
+    const ind = document.getElementById("typing-indicator");
+    ind.textContent = `${currentUser.name} yazıyor...`;
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => { ind.textContent = ""; }, 1800);
+  };
+
+  window.editMessage = (msgId) => {
+    const list = localStore.messagesCache[currentChat?.id] || [];
+    const msg = list.find(m => m.id === msgId);
+    if (!msg) return showToast("Düzenleme sadece yerel önbellekteki mesajlarda aktif.");
+    const updated = prompt("Mesajı düzenle:", msg.text);
+    if (updated && updated.trim()) {
+      msg.text = updated.trim();
+      msg.edited = true;
+      renderMessages(list);
+    }
+  };
+
+  window.deleteMessage = async (msgId) => {
+    if (currentChat?.type === "room") {
+      try { await deleteDoc(doc(db, `rooms/${currentChat.id}/messages`, msgId)); } catch {}
+    } else if (localStore.messagesCache[currentChat?.id]) {
+      localStore.messagesCache[currentChat.id] = localStore.messagesCache[currentChat.id].filter(m => m.id !== msgId);
+      renderMessages(localStore.messagesCache[currentChat.id]);
+    }
+    showToast("Mesaj silindi.");
+  };
+
+  window.toggleReaction = (msgId, emoji) => {
+    const list = localStore.messagesCache[currentChat?.id] || [];
+    const msg = list.find(m => m.id === msgId);
+    if (!msg) return;
+    if (!msg.reactions) msg.reactions = {};
+    if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+    const idx = msg.reactions[emoji].indexOf(currentUser.uid);
+    if (idx > -1) msg.reactions[emoji].splice(idx, 1);
+    else msg.reactions[emoji].push(currentUser.uid);
+    renderMessages(list);
+  };
+
+  window.sendPhotoMessage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => pushMessage({ imageUrl: reader.result });
+    reader.readAsDataURL(file);
+  };
+
+  window.toggleGifPicker = () => document.getElementById("gif-picker").classList.toggle("hidden");
+  function renderGifs(list) {
+    document.getElementById("gif-grid").innerHTML = list.map(g => `
+      <img src="${g.url}" onclick="sendGifMessage('${g.url}')" class="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80" />
+    `).join("");
+  }
+  window.filterGifs = () => {
+    const q = document.getElementById("gif-search").value.toLowerCase();
+    renderGifs(GIF_CATALOG.filter(g => g.tag.includes(q)));
+  };
+  window.sendGifMessage = (url) => {
+    toggleGifPicker();
+    pushMessage({ gifUrl: url });
+  };
+
+  window.toggleAudioRecording = async () => {
+    const btn = document.getElementById("btn-record-audio");
+    if (!isRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: "audio/webm" });
+          const audioUrl = URL.createObjectURL(blob);
+          pushMessage({ audioUrl });
+          stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        btn.classList.add("bg-rose-500", "text-white");
+        showToast("Ses kaydediliyor... Bitirmek için tekrar bas.");
+      } catch {
+        showToast("Mikrofon izni verilmedi.");
+      }
+    } else {
+      mediaRecorder.stop();
+      isRecording = false;
+      btn.classList.remove("bg-rose-500", "text-white");
+    }
+  };
+
+  // ==================== 3D ORTAK FİLM SALONU ====================
+  let cinemaSyncTime = 0;
+  function init3DCinema() {
+    const container = document.getElementById("threejs-cinema-container");
+    if (!container || container.childNodes.length > 0) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05070d);
+    const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(0, 2.2, 5.5);
+    camera.lookAt(0, 1.2, -3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x406080, 1.4));
+    const screenGlow = new THREE.PointLight(0x10b981, 2.2, 12);
+    screenGlow.position.set(0, 2, -2.5);
+    scene.add(screenGlow);
+
+    const screenMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(5.6, 3.1, 0.15),
+      new THREE.MeshStandardMaterial({ color: 0x111827, emissive: 0x064e3b, emissiveIntensity: 0.4 })
+    );
+    screenMesh.position.set(0, 1.8, -3.5);
+    scene.add(screenMesh);
+
+    const seatGeo = new THREE.BoxGeometry(0.6, 0.5, 0.6);
+    const seatMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+    for (let row = 0; row < 2; row++) {
+      for (let col = -2; col <= 2; col++) {
+        const seat = new THREE.Mesh(seatGeo, seatMat);
+        seat.position.set(col * 1.1, 0.3 + row * 0.3, 1.2 + row * 1.3);
+        scene.add(seat);
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      camera.position.x = Math.sin(Date.now() * 0.0005) * 0.4;
+      camera.lookAt(0, 1.4, -3);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    const video = document.getElementById("shared-video-player");
+    video.addEventListener("timeupdate", () => { cinemaSyncTime = video.currentTime; });
+  }
+
+  window.syncCinemaVideo = () => {
+    const video = document.getElementById("shared-video-player");
+    video.currentTime = cinemaSyncTime;
+    video.play();
+    showToast("Video tüm salonla aynı saniyeye senkronize edildi!");
+  };
+
+  window.changeCinemaVideoUrl = () => {
+    const url = prompt("MP4 Video bağlantısını yapıştır:");
+    if (url && url.trim()) {
+      const video = document.getElementById("shared-video-player");
+      video.src = url.trim();
+      video.play();
+      showToast("Yeni video salona yansıtıldı!");
+    }
+  };
+
+  window.sendCinemaComment = () => {
+    const input = document.getElementById("cinema-comment-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    const box = document.getElementById("cinema-comments");
+    box.innerHTML += `
+      <div class="bg-slate-900/90 border border-white/5 rounded-xl px-3 py-1.5 text-xs">
+        <span class="font-bold text-emerald-400">${currentUser.name}:</span>
+        <span class="text-slate-200">${text}</span>
+      </div>
+    `;
+    box.scrollTop = box.scrollHeight;
+  };
+
+  // ==================== SESLİ & GÖRÜNTÜLÜ ODA ====================
+  let inVoiceRoom = false;
+  window.toggleVoiceJoin = async () => {
+    const badge = document.getElementById("voice-status-badge");
+    const btn = document.getElementById("btn-voice-join");
+    const avatar = document.getElementById("my-voice-avatar");
+    if (!inVoiceRoom) {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        inVoiceRoom = true;
+        badge.textContent = "Sesli Odada";
+        badge.className = "px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-semibold";
+        btn.innerHTML = `<i data-lucide="phone-off" class="w-4 h-4"></i> Ayrıl`;
+        btn.className = "px-4 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5";
+        avatar.classList.add("speaking-ring");
+        showToast("Sesli odaya katıldın!");
+      } catch {
+        showToast("Mikrofon erişimi gerekli.");
+      }
+    } else {
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      inVoiceRoom = false;
+      camEnabled = false;
+      document.getElementById("local-video-preview").classList.add("hidden");
+      badge.textContent = "Bağlı Değil";
+      badge.className = "px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 text-[11px] font-semibold";
+      btn.innerHTML = `<i data-lucide="phone-call" class="w-4 h-4"></i> Odaya Katıl`;
+      btn.className = "px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs flex items-center gap-1.5";
+      avatar.classList.remove("speaking-ring");
+    }
+    lucide.createIcons();
+  };
+
+  window.toggleMic = () => {
+    if (!localStream) return showToast("Önce sesli odaya katıl.");
+    micEnabled = !micEnabled;
+    localStream.getAudioTracks().forEach(t => (t.enabled = micEnabled));
+    showToast(micEnabled ? "Mikrofon açık" : "Mikrofon sessize alındı");
+  };
+
+  window.toggleCam = async () => {
+    if (!inVoiceRoom) return showToast("Önce sesli odaya katıl.");
+    const videoEl = document.getElementById("local-video-preview");
+    if (!camEnabled) {
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoEl.srcObject = camStream;
+        videoEl.classList.remove("hidden");
+        camEnabled = true;
+        showToast("Kamera açıldı");
+      } catch {
+        showToast("Kamera izni verilmedi.");
+      }
+    } else {
+      if (videoEl.srcObject) videoEl.srcObject.getTracks().forEach(t => t.stop());
+      videoEl.classList.add("hidden");
+      camEnabled = false;
+      showToast("Kamera kapatıldı");
+    }
+  };
+
+  // ==================== MİNİ OYUNLAR VE SKOR İSTATİSTİKLERİ ====================
+  let xoxState = Array(9).fill("");
+  let xoxActive = true;
+
+  function updateStats(pointsAdd, won) {
+    localStore.stats.points += pointsAdd;
+    localStore.stats.played += 1;
+    if (won) localStore.stats.wins += 1;
+    document.getElementById("stat-points").textContent = localStore.stats.points;
+    document.getElementById("stat-wins").textContent = localStore.stats.wins;
+    document.getElementById("stat-played").textContent = localStore.stats.played;
+  }
+
+  function initXOX() {
+    const board = document.getElementById("xox-board");
+    board.innerHTML = xoxState.map((val, i) => `
+      <button onclick="playXOX(${i})" class="h-16 rounded-xl bg-slate-950 border border-white/10 text-xl font-extrabold ${val === 'X' ? 'text-emerald-400' : 'text-cyan-400'}">
+        ${val}
+      </button>
+    `).join("");
+  }
+
+  function checkWinner(b) {
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (const [a, c, d] of lines) {
+      if (b[a] && b[a] === b[c] && b[a] === b[d]) return b[a];
+    }
+    return b.includes("") ? null : "Draw";
+  }
+
+  window.playXOX = (idx) => {
+    if (!xoxActive || xoxState[idx]) return;
+    xoxState[idx] = "X";
+    let res = checkWinner(xoxState);
+    if (!res) {
+      const empty = xoxState.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+      const botIdx = empty[Math.floor(Math.random() * empty.length)];
+      if (botIdx !== undefined) xoxState[botIdx] = "O";
+      res = checkWinner(xoxState);
+    }
+    initXOX();
+    if (res) {
+      xoxActive = false;
+      const status = document.getElementById("xox-status");
+      if (res === "X") {
+        status.textContent = "Tebrikler! Kazandın (+25 Puan)";
+        updateStats(25, true);
+        pushNotification("TikX XOX oyununu kazandın! +25 Puan eklendi.");
+      } else if (res === "O") {
+        status.textContent = "Bot kazandı! Tekrar dene.";
+        updateStats(5, false);
+      } else {
+        status.textContent = "Berabere! (+10 Puan)";
+        updateStats(10, false);
+      }
+    }
+  };
+
+  window.resetXOX = () => {
+    xoxState = Array(9).fill("");
+    xoxActive = true;
+    document.getElementById("xox-status").textContent = "Sıra sende (X) — Kazanırsan +25 Puan!";
+    initXOX();
+  };
+
+  window.playRPS = (choice) => {
+    const opts = ["Taş", "Kağıt", "Makas"];
+    const bot = opts[Math.floor(Math.random() * 3)];
+    const el = document.getElementById("rps-result");
+    if (choice === bot) {
+      el.textContent = `Rakip de ${bot} seçti! Berabere (+5 Puan)`;
+      updateStats(5, false);
+    } else if (
+      (choice === "Taş" && bot === "Makas") ||
+      (choice === "Kağıt" && bot === "Taş") ||
+      (choice === "Makas" && bot === "Kağıt")
+    ) {
+      el.textContent = `Kazandın! ${choice}, ${bot}'ı yendi (+15 Puan)`;
+      updateStats(15, true);
+    } else {
+      el.textContent = `Kaybettin! Rakip ${bot} seçti.`;
+      updateStats(0, false);
+    }
+  };
+
+  // ==================== DUYURU & BİLDİRİM SİSTEMİ ====================
+  window.openAnnouncementsModal = () => {
+    document.getElementById("announcement-badge").classList.add("hidden");
+    document.getElementById("modal-announcements").classList.remove("hidden");
+    renderAnnouncements();
+  };
+
+  function renderAnnouncements() {
+    document.getElementById("pinned-announcement-text").textContent = localStore.announcements[0]?.text || "Duyuru yok";
+    document.getElementById("announcements-list").innerHTML = localStore.announcements.map(a => `
+      <div class="bg-slate-950 border border-amber-500/20 rounded-xl p-3">
+        <p class="text-xs text-white font-medium">${a.text}</p>
+        <span class="text-[10px] text-slate-400 mt-1 block">${a.author} • ${a.time}</span>
+      </div>
+    `).join("");
+  }
+
+  window.publishAnnouncement = async () => {
+    const input = document.getElementById("new-announcement-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    const ann = { id: Date.now().toString(), text, author: currentUser.name, time: getNowTime() };
+    localStore.announcements.unshift(ann);
+    try { await addDoc(collection(db, "announcements"), { ...ann, createdAt: serverTimestamp() }); } catch {}
+    renderAnnouncements();
+    pushNotification(`Yeni duyuru yayınlandı: ${text}`);
+    showToast("Duyuru yayınlandı!");
+  };
+
+  window.openNotificationsModal = () => {
+    document.getElementById("modal-notifications").classList.remove("hidden");
+    renderNotifications();
+  };
+
+  function renderNotifications() {
+    const unreadCount = localStore.notifications.filter(n => n.unread).length;
+    const badge = document.getElementById("notif-badge");
+    badge.textContent = unreadCount;
+    badge.classList.toggle("hidden", unreadCount === 0);
+
+    document.getElementById("notifications-list").innerHTML = localStore.notifications.map(n => `
+      <div class="p-2.5 rounded-xl border ${n.unread ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-950 border-white/5'} text-xs">
+        ${n.text}
+      </div>
+    `).join("");
+  }
+
+  window.clearNotifications = () => {
+    localStore.notifications.forEach(n => (n.unread = false));
+    renderNotifications();
+  };
+
+  // ==================== AYARLAR & 2FA HESAP SİLME ====================
+  window.updateProfilePhoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      currentUser.photo = reader.result;
+      document.getElementById("settings-avatar-img").src = reader.result;
+      showToast("Profil fotoğrafı güncellendi!");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.saveProfileName = async () => {
+    const newName = document.getElementById("settings-name-input").value.trim();
+    if (!newName) return;
+    currentUser.name = newName;
+    document.getElementById("my-voice-name").textContent = newName;
+    document.getElementById("my-voice-avatar").textContent = newName[0].toUpperCase();
+    if (auth.currentUser) {
+      await updateProfile(auth.currentUser, { displayName: newName });
+    }
+    showToast("İsim güncellendi!");
+  };
+
+  window.setBgTheme = (themeClass) => {
+    const shell = document.getElementById("app-shell");
+    shell.classList.remove("bg-theme-pulse", "bg-theme-ocean", "bg-theme-aurora", "bg-theme-minimal");
+    shell.classList.add(themeClass);
+    showToast("Arka plan teması değiştirildi!");
+  };
+
+  window.handleLogout = async () => {
+    await signOut(auth);
+    location.reload();
+  };
+
+  window.openDeleteAccount2FA = () => {
+    generated2FACode = Math.floor(100000 + Math.random() * 900000).toString();
+    document.getElementById("delete-2fa-code-display").textContent = generated2FACode;
+    document.getElementById("delete-2fa-input").value = "";
+    document.getElementById("delete-confirm-word").value = "";
+    document.getElementById("modal-delete-2fa").classList.remove("hidden");
+  };
+
+  window.confirmDeleteAccount2FA = async () => {
+    const codeInput = document.getElementById("delete-2fa-input").value.trim();
+    const wordInput = document.getElementById("delete-confirm-word").value.trim().toUpperCase();
+    if (codeInput !== generated2FACode) return showToast("6 haneli doğrulama kodu eşleşmiyor!");
+    if (wordInput !== "SİL") return showToast("Onay kutusuna SİL yazmalısın!");
+
+    if (auth.currentUser) {
+      try {
+        await deleteUser(auth.currentUser);
+      } catch (err) {
+        return showToast("Güvenlik için tekrar giriş yapıp deneyin.");
+      }
+    }
+    alert("Hesabın 2 aşamalı doğrulama ile kalıcı olarak silindi.");
+    location.reload();
+  };
+
+  lucide.createIcons();
+</script>
+</body>
+</html>
